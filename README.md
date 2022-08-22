@@ -98,3 +98,15 @@ troubleshooting and workaround that boils down to:
    driver.
 2. Add the IPPE endpoint as a printer port, explicitly.
 3. Tie all that together with your defined printer associating the two.
+
+### printer_manager/add-CUPS_printer.command
+
+This script was always designed around environment variables. I have removed
+constants from this file that were organization specific. Previously, it had
+sufficient constants in the file that I could stick the command file on a usb
+stick and update a student's machine if it were missing the printer
+information. Much of the content of the script is working around that the MDM
+we were using didn't always deal with scripts appropriately. This was, as with
+the other, using IPP Everwhere. Since I enabled avahi on that print server,
+I've been able to use airprint instead, and I'm able to define airprint servers
+with apple's ``.mobileconfig`` profiles that can be managed by an MDM.
