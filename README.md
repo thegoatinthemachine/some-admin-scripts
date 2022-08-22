@@ -118,3 +118,39 @@ the capability to define scripts for both the install process and the uninstall
 process. I wanted packages I authored to be idempotent if at all possible, so
 this was designed to simply remove the printer I defined in the install step.
 This is another script which just interacts with CUPS.
+
+### macOS_upgrade/ansible/playbook.yml
+
+This ansible playbook was designed so I could set up a bunch of Apple ARM
+computers with power and ethernet on the LAN, and let it rip. It ended up being
+pretty fast on a per-machine basis with gigabit ethernet, much faster IME than
+telling each machine to download the OS files over the internet, even with
+content caching. 
+
+This is super slapdash, I had a very short deadline to get this done, and I'd
+already spent a couple weeks troubleshooting every other option in order of
+ease. MDM update-pushing had no feedback and almost never worked, the macadmins
+suggested scripts would time out, repacking the OS installer with Composer
+didn't work correctly, it was just a mess. This was seriously a last, last
+resort. The only reason why I had to proceed with this specific plan instead of
+piggybacking off of Graham Pugh's work is because the MDM we were using would
+time out the scripts I needed to work. I couldn't get them to work by spawning
+with NOHUP either. So, screw it, I'll make it work myself. This of course
+required that the MDM enable SSH on the target machines, but that was
+relatively trivial.
+
+The only problems I ever had with it while it was running (and I'd debugged the
+playbook itself), was that occasionally a machine would not have been set up
+correctly with the local administrator created during the MDM enrollment
+process as a Volume Owner, which is just a super annoying concept tbh. Apple
+makes really good consumer machines, but they have been increasingly difficult
+to actually administer over the last few versions. Volume Ownership, at any
+rate, is *supposed* to get set up for the initial users as they are provisioned
+and log into the machine. The local administrator account would inevitably have
+the first actual user UID, so it was actually the first to be set up, but on
+maybe a couple dozen machines, failure rate maybe 10ish %, it wasn't the volume
+owner, which necessitated my nuking the machine from orbit and reinstalling
+with a bootable external SSD loaded with Monterey.
+
+There are some comments as to the specific reasons why some options or
+directories were chosen in the content of the script.

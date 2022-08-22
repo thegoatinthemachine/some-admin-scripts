@@ -1,0 +1,164 @@
+---
+
+- name: identify reachable hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+
+  - name: build successful host list
+    block:
+
+    - name: add ssh key
+      ansible.posix.authorized_key:
+        comment: From {{ my_ansible_server }} for ansible
+        state: present
+        user: {{ localadmin }}
+        key: "{{ lookup('file', '.ssh/id_rsa.pub') }}"
+
+    - name: add to successes
+      ansible.builtin.group_by:
+        key: "reachable"
+
+    rescue:
+      - name: create host group for failed hosts
+        ansible.builtin.group_by:
+          key: "failed_hosts"
+
+- name: Assign reachable OS version groups
+  hosts: reachable
+  tasks:
+#  - name: run true on Big Sur
+#    command: /usr/bin/true
+#    when: ansible_distribution_major_version < "12"
+     #used during testing to make sure I was getting feedback from the right
+     #groups
+  - name: collect Big Sur group
+    ansible.builtin.group_by:
+      key: "Big_Sur"
+    when: ansible_distribution_major_version < "12"
+    #These were Apple ARM machines, which never shipped with any lower version
+    #than Big Sur
+  # - name: run true on Monterey
+  #   command: /usr/bin/true
+  #   when: ansible_distribution_major_version == "12"
+  - name: collect Monterey group
+    ansible.builtin.group_by:
+      key: "Monterey"
+    when: ansible_distribution_major_version == "12"
+
+- name: Refresh user accounts
+  hosts: all
+  tasks:
+
+  - name: get user list
+    changed_when: false
+    ansible.builtin.shell: dscl . -list /Users UniqueID | awk '$2 > 500 {print $1}'
+    #why 500? That's where macOS starts the UIDs for actual users rather than
+    #service accounts. Linux starts them at 1000
+    register: userlist
+#  - debug:
+#      var: userlist
+  - name: set user facts
+    ansible.builtin.set_fact:
+      my_users: "{{ userlist.stdout_lines }}"
+#  - debug:
+#      var: my_users
+
+  - name: rsync non-localized
+    become: true
+    ignore_errors: true
+    ansible.builtin.command: rsync -ac --exclude '.ansible' --exclude '.ssh' --exclude Keychains --delete /System/Library/User\ Template/Non_localized/ "/Users/{{ item }}"
+    #The source location here is where macOS keeps the template for new user
+    #directory structures. Excluding the Keychains directory allowed me to do this
+    #without creating a login-keychain issue for myself down the line. The end
+    #effect of this was as though I had nuked and recreated a user account without
+    #needing to actually do so, which saved a huge amount of time. These were all
+    #student machines that were getting updated to the next version of the OS, and
+    #were being handed back to the same student at the start of the semester.
+    args:
+      removes: "/Users/{{ item }}/Library/Application\ Support/*"
+    loop: "{{ my_users }}"
+    notify: reset user permissions
+
+  - name: rsync localized
+    become: true
+    ignore_errors: true
+    ansible.builtin.command: rsync -ac /System/Library/User\ Template/English.lproj/ "/Users/{{ item }}"
+    args:
+      creates: "/Users/{{ item }}/Library/FontCollections"
+    loop: "{{ my_users }}"
+    notify: reset user permissions
+
+  - name: Force handler to run
+    ansible.builtin.meta: flush_handlers
+
+  handlers:
+    - name: reset user permissions
+      become: true
+      ansible.builtin.shell: diskutil resetUserPermissions / $(id -u "{{ item }}")
+      loop: "{{ my_users }}"
+      register: reset_status
+#    - debug:
+#        var: reset_status
+
+- name: Sync Monterey Installer on Big Sur targets
+  hosts: reachable
+  strategy: free
+  tasks:
+
+  - name: Make sure target directory is present
+    ansible.builtin.file:
+      path: "/tmp/monterey"
+      #/tmp/ is designed for exactly this kind of thing, and has permissive
+      #settings so I'm able to just arbitrarily stick a big honkin' file there without
+      #worrying about the macOS Full Disk Access settings, which may or may not be
+      #enabled
+      state: directory
+    when: "'Big_Sur' in group_names"
+
+  - name: Synchronize Monterey Installer
+    throttle: 3
+    ansible.posix.synchronize:
+      partial: true
+      rsync_timeout: 300
+      #rsync_timeout is for if there's no activity at all, not the total time
+      #of the copy
+      checksum: true
+      private_key: .ssh/id_rsa
+      src: "/Applications/Install\ macOS\ Monterey.app"
+      dest: "/tmp/monterey/"
+      archive: true
+    when: "'Big_Sur' in group_names"
+
+  - name: Run Monterey startosinstall
+    ignore_unreachable: true
+    ignore_errors: true
+    ansible.builtin.shell: /bin/echo {{ localadmin_pass }}| /tmp/monterey/Install\ macOS\ Monterey.app/Contents/Resources/startosinstall --agreetolicense --forcequitapps --nointeraction --user {{ localadmin }} --stdinpass
+    args:
+      executable: /bin/zsh
+    when: "'Big_Sur' in group_names"
+    register: startosinstall_output
+
+  # - debug:
+  #     var: startosinstall_output
+  #   when: "'Big_Sur' in group_names"
+
+  - name: run softwareupdate
+    become: true
+    ansible.builtin.command: softwareupdate --install --force --os-only --restart --user {{ localadmin }} --stdinpass {{ localadmin_pass }}
+    when:
+      - "'Monterey' in group_names"
+      - ansible_distribution_version < "12.5"
+    #Why is this a task instead of another play? Because I can stick it in this
+    #play with strategy: free and let the playbook rip on a bunch of machines which
+    #have differing OS levels. In theory, this should make sure that machines which
+    #are on Monterey but not completely updated can do what they need to without
+    #waiting around for the 12+ GB installer to copy and start on all the Big Sur
+    #machines.
+
+# - name: refresh DEP profile
+#   become: true
+#   ansible.builtin.command: profiles renew -type enrollment
+#   when:
+#     - "'Monterey' in group_names"
+#     - ansible_distribution_version == "12.5"
