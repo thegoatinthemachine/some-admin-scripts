@@ -54,8 +54,7 @@ There are better ways now, may I never have to touch every machine the way I
 did for this again. Most recently, with a buggy MDM, I wrote an Ansible script
 which handled most of this deployment process.
 
-## printer_managr/add_IPP_Everywhere_printer.ps1
-
+### printer_managr/add_IPP_Everywhere_printer.ps1
 
 This was hardcoded because it was so short, but I have removed the organization
 specific details. The crucial bit about this, why this script behaves in
