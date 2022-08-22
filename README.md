@@ -53,3 +53,48 @@ the crap out of it.
 There are better ways now, may I never have to touch every machine the way I
 did for this again. Most recently, with a buggy MDM, I wrote an Ansible script
 which handled most of this deployment process.
+
+## printer_managr/add_IPP_Everywhere_printer.ps1
+
+
+This was hardcoded because it was so short, but I have removed the organization
+specific details. The crucial bit about this, why this script behaves in
+exactly this way, this was the only way I could identify to deal with IPP
+Everwhere printers served by CUPS. This was years ago on an old print server,
+on which I did not have Samba or Avahi installed or joined to the domain. Samba
+makes this specific process unnecessary, because you can just define standard
+Windows print services.
+
+Of particular note, the way that printing typically works is that the files to
+be printed are passed through a driver, but really most of them are
+fundamentally pretty similar. Postscript Printer Descriptions can be defined
+for systems which use CUPS, ie, macOS and Linux. IIRC, the language for this is
+a 'filter'. So here's the thing about CUPS: you can pass a server raw
+information without putting drivers on every endpoint and they'll work
+correctly if they have the filter set up between the server and the printer.
+This was ideal in a situation where Apple had started to outmode the concept of
+printer drivers. The way that MDMs distribute printer information is by telling
+the machine which IPP Everwhere address to find or which AirPrint printer to
+use. Apple's CUPS is perfectly happy to send raw printer data to a printer or a
+server, it doesn't care.
+
+On Windows I may have had the ability to pass drivers to it, but honestly... I
+didn't want to set up the print server twice for the printer. So I set it up so
+the print server could talk to the printer correctly, and presented an IPP
+Everywhere endpoint. Windows doesn't know how to deal with IPPE endpoints,
+because it expects some kind of driver. Enter "MS Publisher Color Printer".
+This is a stupid, stupid workaround to get Windows to sent full color raw info
+to the CUPS server, and let CUPS do the filtering to spit out commands to the
+server.
+
+The value of this script is not in the method. This is not best practice. If
+you're using CUPS, set up Samba and point your Windows machines at that,
+because those printers show correctly in Microsoft land. The value is in my
+research about RAW printers in Windows and CUPS, IPP Everwhere, and
+troubleshooting and workaround that boils down to:
+
+1. Explicitly name the "MS Publisher Color Printer" as a driver so it can be
+   used to send RAW printer information to the server, which itself has the
+   driver.
+2. Add the IPPE endpoint as a printer port, explicitly.
+3. Tie all that together with your defined printer associating the two.
