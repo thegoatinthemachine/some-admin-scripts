@@ -110,3 +110,11 @@ we were using didn't always deal with scripts appropriately. This was, as with
 the other, using IPP Everwhere. Since I enabled avahi on that print server,
 I've been able to use airprint instead, and I'm able to define airprint servers
 with apple's ``.mobileconfig`` profiles that can be managed by an MDM.
+
+### printer_managr/rm_printer.sh
+
+This is an older script that I wrote for a previous MDM, Filewave, which had
+the capability to define scripts for both the install process and the uninstall
+process. I wanted packages I authored to be idempotent if at all possible, so
+this was designed to simply remove the printer I defined in the install step.
+This is another script which just interacts with CUPS.
