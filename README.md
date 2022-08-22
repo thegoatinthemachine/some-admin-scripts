@@ -78,10 +78,11 @@ the machine which IPP Everwhere address to find or which AirPrint printer to
 use. Apple's CUPS is perfectly happy to send raw printer data to a printer or a
 server, it doesn't care.
 
-On Windows I may have had the ability to pass drivers to it, but honestly... I
-didn't want to set up the print server twice for the printer. So I set it up so
-the print server could talk to the printer correctly, and presented an IPP
-Everywhere endpoint. Windows doesn't know how to deal with IPPE endpoints,
+On Windows I may have had the ability to pass drivers to a machine, but
+honestly... I didn't want to set up the print server twice for the printer
+between OSs, nor did I really want to deal with distributing drivers. So I set
+it up so the print server could talk to the printer correctly, and presented an
+IPP Everywhere endpoint. Windows doesn't know how to deal with IPPE endpoints,
 because it expects some kind of driver. Enter "MS Publisher Color Printer".
 This is a stupid, stupid workaround to get Windows to sent full color raw info
 to the CUPS server, and let CUPS do the filtering to spit out commands to the
